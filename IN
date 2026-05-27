@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>PIXEL QUEST UI</title>
+
+<style>
+
+/* =========================
+   🎨 BASE THEME
+========================= */
+
+:root{
+  --ink: rgba(0,0,0,0.75);   /* 深灰黑框 */
+  --panel: rgba(255,255,255,0.78);
+  --soft: rgba(0,0,0,0.06);
+}
+
+body{
+  margin:0;
+  font-family: monospace;
+  background:#d7d7d7;
+  overflow:hidden;
+}
+
+/* 點陣噪點（保留 + 加強層次） */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:
+    radial-gradient(rgba(0,0,0,0.08) 1px, transparent 1px),
+    radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+  background-size:4px 4px, 8px 8px;
+  opacity:0.7;
+  pointer-events:none;
+}
+
+/* =========================
+   🧱 LAYOUT
+========================= */
+
+.wrapper{
+  display:grid;
+  grid-template-columns: 1.25fr 0.9fr 0.9fr;
+  height:100vh;
+  gap:6px;
+  padding:6px;
+  box-sizing:border-box;
+}
+
+/* =========================
+   🪟 PANEL (像遊戲視窗)
+========================= */
+
+.panel{
+  background:var(--panel);
+  border:3px solid var(--ink);
+  display:flex;
+  flex-direction:column;
+  padding:8px;
+  box-sizing:border-box;
+}
+
+/* 標題（像 RPG window title） */
+.title{
+  border:2px solid var(--ink);
+  background:var(--soft);
+  padding:6px;
+  text-align:center;
+  font-weight:bold;
+  margin-bottom:8px;
+  letter-spacing:1px;
+}
+
+/* =========================
+   🗺 MAP (左側日曆)
+========================= */
+
+.calendar{
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap:3px;
+}
+
+.day{
+  border:2px solid var(--ink);
+  background:rgba(255,255,255,0.65);
+  aspect-ratio:1/1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  font-size:10px;
+  cursor:pointer;
+}
+
+.day:hover{
+  background:rgba(0,0,0,0.06);
+}
+
+.day.active{
+  background:rgba(0,0,0,0.75);
+  color:white;
+}
+
+/* =========================
+   ⚔ QUEST LIST (中間)
+========================= */
+
+.task{
+  border:2px solid var(--ink);
+  background:rgba(255,255,255,0.7);
+  display:flex;
+  justify-content:space-between;
+  padding:8px;
+  margin-bottom:6px;
+  font-size:11px;
+}
+
+.task.done{
+  background:rgba(0,0,0,0.75);
+  color:white;
+}
+
+.task input{
+  transform:scale(1.2);
+}
+
+/* =========================
+   🎮 BUTTON
+========================= */
+
+.btn{
+  border:2px solid var(--ink);
+  background:rgba(255,255,255,0.7);
+  font-family:monospace;
+  padding:4px 8px;
+  cursor:pointer;
+}
+
+.btn:active{
+  background:rgba(0,0,0,0.75);
+  color:white;
+}
+
+/* =========================
+   📟 STATUS PANEL
+========================= */
+
+.exp-box{
+  border:2px solid var(--ink);
+  background:rgba(255,255,255,0.7);
+  padding:8px;
+  margin-bottom:10px;
+}
+
+.exp-bar{
+  height:14px;
+  border:2px solid var(--ink);
+  background:rgba(255,255,255,0.4);
+}
+
+.exp-fill{
+  height:100%;
+  width:0%;
+  background:rgba(0,0,0,0.75);
+}
+
+/* reward blocks */
+.reward{
+  border:2px solid var(--ink);
+  background:rgba(255,255,255,0.7);
+  padding:8px;
+  margin-bottom:6px;
+  font-size:11px;
+}
+
+/* =========================
+   🧠 PIXEL FEEL
+========================= */
+
+*{
+  image-rendering: pixelated;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+<!-- LEFT: MAP -->
+<div class="panel">
+
+  <div class="title">🗺 MAP</div>
+
+  <div class="calendar" id="calendar"></div>
+
+</div>
+
+<!-- CENTER: QUEST -->
+<div class="panel">
+
+  <div class="title">⚔ QUEST LOG</div>
+
+  <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+    <button class="btn" onclick="changeDay(-1)">◀</button>
+    <div id="date">DAY 1</div>
+    <button class="btn" onclick="changeDay(1)">▶</button>
+  </div>
+
+  <div id="tasks"></div>
+
+</div>
+
+<!-- RIGHT: STATUS -->
+<div class="panel">
+
+  <div class="title">📟 STATUS</div>
+
+  <div class="exp-box">
+    TOTAL EXP
+    <div id="expText" style="margin-top:6px;">0</div>
+
+    <div class="exp-bar">
+      <div class="exp-fill" id="expFill"></div>
+    </div>
+  </div>
+
+  <div class="reward">200 XP：沼澤貼紙</div>
+  <div class="reward">600 XP：沼澤 T</div>
+
+</div>
+
+</div>
+
+<script>
+
+const DAYS = 30;
+let currentDay = 1;
+
+const data = {};
+
+for(let i=1;i<=DAYS;i++){
+  data[i] = [
+    {text:"訓練30分鐘", points:10, done:false},
+    {text:"睡滿7hr以上", points:10, done:false}
+  ];
+}
+
+/* ===== XP ===== */
+
+function dayXP(day){
+  return data[day]
+    .filter(t=>t.done)
+    .reduce((a,b)=>a+b.points,0);
+}
+
+function totalXP(){
+  let sum=0;
+  for(let i=1;i<=DAYS;i++){
+    sum += dayXP(i);
+  }
+  return sum;
+}
+
+/* ===== UI ===== */
+
+function renderCalendar(){
+  const c = document.getElementById("calendar");
+  c.innerHTML="";
+
+  for(let i=1;i<=DAYS;i++){
+
+    const d = document.createElement("div");
+    d.className="day";
+
+    if(i===currentDay) d.classList.add("active");
+
+    d.innerHTML=`
+      <div>${i}</div>
+      <div>${dayXP(i)}XP</div>
+    `;
+
+    d.onclick=()=>{
+      currentDay=i;
+      renderAll();
+    };
+
+    c.appendChild(d);
+  }
+}
+
+function renderTasks(){
+  document.getElementById("date").innerText = "DAY " + currentDay;
+
+  const box = document.getElementById("tasks");
+  box.innerHTML="";
+
+  data[currentDay].forEach((t,i)=>{
+
+    const div = document.createElement("div");
+    div.className="task" + (t.done?" done":"");
+
+    div.innerHTML=`
+      <label>
+        <input type="checkbox" ${t.done?"checked":""}
+        onchange="toggle(${i})">
+        ${t.text}
+      </label>
+      <div>${t.points}XP</div>
+    `;
+
+    box.appendChild(div);
+
+  });
+}
+
+function renderXP(){
+  const xp = totalXP();
+
+  document.getElementById("expText").innerText = xp;
+
+  const percent = Math.min(xp/600*100,100);
+
+  document.getElementById("expFill").style.width = percent + "%";
+}
+
+function toggle(i){
+  data[currentDay][i].done = !data[currentDay][i].done;
+  renderAll();
+}
+
+function changeDay(v){
+  currentDay += v;
+  if(currentDay<1) currentDay=1;
+  if(currentDay>DAYS) currentDay=DAYS;
+  renderAll();
+}
+
+function renderAll(){
+  renderCalendar();
+  renderTasks();
+  renderXP();
+}
+
+renderAll();
+
+</script>
+
+</body>
+</html>
